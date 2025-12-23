@@ -77,6 +77,20 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
         else:
             self.send_error(404, "Not Found")
 
+    def do_GET(self):
+        """Handle GET requests. Return the last N requests"""
+        if self.path == "/history":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+
+            # Convert history deque to a list so JSON can read it
+            response = {"history": list(self.history)}
+
+            self.wfile.write(json.dumps(response).encode("utf-8"))
+        else:
+            self.send_error(404, "Not Found")
+
 
 if __name__ == "__main__":
     server = http.server.HTTPServer(("localhost", 8000), RequestHandler)
