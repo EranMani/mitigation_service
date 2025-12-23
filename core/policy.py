@@ -5,9 +5,9 @@ The policy will decide which action priority is best suitable for the prompt - b
 
 import json
 from pathlib import Path
-from redactors import EmailRedactor, PhoneRedactor, SecretRedactor, CreditCardRedactor
+from core.redactors import EmailRedactor, PhoneRedactor, SecretRedactor, CreditCardRedactor
 
-POLICY_FILE_PATH = Path(__file__).parent / "policy.json"
+POLICY_FILE_PATH = Path(__file__).parent.parent / "policy.json"
 
 class Policy:
     """Manages policy rules loaded from a JSON file and assign the required action."""

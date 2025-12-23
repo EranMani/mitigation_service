@@ -7,7 +7,7 @@ import json
 from sys import exception
 import time
 from collections import UserDict, deque
-from policy import Policy
+from core.policy import Policy
 
 
 class RequestHandler(http.server.BaseHTTPRequestHandler):
