@@ -35,6 +35,11 @@ All rules are defined in a simple `policy.json` file. You can toggle specific re
 ### 3. "Fail-Closed" Architecture
 Designed for security first. If the policy rules cannot be loaded (missing or invalid JSON), the server refuses to start to prevent data leakage.
 
+### 4. Bonus: ICAP Adapter (Mock)
+In addition to the HTTP API, the service exposes a TCP endpoint on **port 1344** that simulates an ICAP (Internet Content Adaptation Protocol) interface.
+* **Goal:** Demonstrate how the core `Policy` engine can be reused across different protocols (HTTP vs ICAP) without code duplication.
+* **Usage:** Accepts raw `REQMOD ... PROMPT=...` packets.
+
 ---
 
 ## 🛠️ Installation & Setup
@@ -52,24 +57,20 @@ I have provided batch scripts to automate the entire build and run process.
 | File | Description |
 | :--- | :--- |
 | **`run_server.bat`** | **Start Here.** Builds the Docker image, handles port conflicts, and starts the server. |
-| **`run_demo.bat`** | **Demo Mode.** Starts the server *and* automatically fires 10 distinct test cases (Allow, Block, Redact) to verify all features. |
+| **`run_demo.bat`** | **Demo** Mode. Starts the server and automatically fires 13 distinct test cases (HTTP + ICAP) to verify all features. |
 ---
 
 ### Option A: Run with Docker (Recommended)
 This ensures the environment matches exactly what was developed.
 If you prefer running commands manually:
 
-**1. Build the Image**
 ```bash
-docker build -t mitigation-service .
+docker compose up --build
 ```
 
-**2. Run the Container**
-```bash
-docker run -p 8000:8000 mitigation-service
-```
-
-The server will start listening on port 8000.
+The server will start listening on:\
+HTTP: Port 8000\
+ICAP: Port 1344
 
 ### Option B: Run Locally (Python)
 If you prefer to run it directly on your machine.
@@ -80,7 +81,7 @@ python server.py
 
 
 ## 🚀 Usage
-**1. Mitigate a Prompt (POST)**
+**1. Mitigate a Prompt for HTTP server(POST)**
 Send text to the /mitigate endpoint to sanitize it.
 
 Request using CMD
@@ -103,8 +104,21 @@ Response (Blocked Example)
 }
 ```
 
-**2. Check History (GET)**
-View the last 20 interactions (by default) for auditing purposes
+**2. Mitigate a Prompt for ICAP server(POST)**\
+Since ICAP is a raw TCP protocol, we use a Python one-liner to simulate a client sending a REQMOD command.\
+\
+Request using CMD
+```bash
+python -c "import socket; s=socket.socket(); s.connect(('localhost', 1344)); s.sendall(b'REQMOD icap://server/mitigate PROMPT=I want to kill the process\n'); print(s.recv(1024).decode())"
+```
+\
+Request using Powershell
+```bash
+python -c 'import socket; s=socket.socket(); s.connect(("localhost", 1344)); s.sendall(b"REQMOD icap://server/mitigate PROMPT=I want to kill the process\n"); print(s.recv(1024).decode())'
+```
+
+**3. Check History (GET)**
+View the last 20 interactions (by default) for auditing purposes\
 However, you can choose how many last requests you want to view by adding ?n=number to the end-point
 
 Request using CMD
