@@ -93,5 +93,11 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    server = http.server.HTTPServer(("localhost", 8000), RequestHandler)
-    server.serve_forever()
+    # Bind to 0.0.0.0 in order for this to work on docker
+    server = http.server.HTTPServer(("0.0.0.0", 8000), RequestHandler)
+    print("Server started on port 8000...")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nStopping server...")
+        server.server_close()
