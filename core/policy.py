@@ -5,128 +5,138 @@ The policy will decide which action priority is best suitable for the prompt - b
 
 import json
 from pathlib import Path
-from core.redactors import EmailRedactor, PhoneRedactor, SecretRedactor, CreditCardRedactor
+from typing import Dict, Any, Optional
+from .redactors import EmailRedactor, PhoneRedactor, SecretRedactor, CreditCardRedactor
 
-POLICY_FILE_PATH = Path(__file__).parent.parent / "policy.json"
+# Constants
+POLICY_FILENAME = "policy.json"
+DEFAULT_MAX_CHARS = 200
 
 class Policy:
     """Manages policy rules loaded from a JSON file and assign the required action."""
     
-    def __init__(self, policy_file_path=POLICY_FILE_PATH):
+    def __init__(self, policy_path: Optional[Path] = None):
         """Initialize the Policy instance by loading policy rules from a JSON file."""
-        self.policy_file_path = policy_file_path
+        self.policy_file_path = Path(__file__).parent.parent / POLICY_FILENAME
 
-        # Load the policy rules and setup redactors
+        self.rules = {}
+        self.redactors = {}
+
+        # Load the policy rules and setup redactors on startup
         self.load_policy()
         
     def load_policy(self):
-        """Load the rules and setup redactors. Can also be used to reload the policy when needed."""
+        """Load rules and configure redactors. Can be called at runtime to reload."""
         try:
-            # Load policy rules
-            with open(self.policy_file_path, "r") as policy_rules:
-                self.rules = json.load(policy_rules)
-            print(f"Loaded {len(self.rules)} policy rules from {self.policy_file_path}")
-
-            self.redactors = self.configure_redactors()
-            print(f"Initialized the following redactors: {[redactor for redactor in self.redactors.keys()]}")    
-
+            with open(self.policy_file_path, "r", encoding="utf-8") as f:
+                self.rules = json.load(f)
+            
+            print(f"Loaded {len(self.rules)} rules from {self.policy_file_path}")
+            
+            # Re-initialize redactors based on new config
+            self._configure_redactors()
+            
         except (FileNotFoundError, json.JSONDecodeError) as e:
-            print(f"CRITICAL SECURITY ERROR!!!")
-            print(f"Could not load policy file: {self.policy_file_path}")
-            print(f"Error details: {e}")
-            print(f"Server cannot start without valid rules. Exiting...")
+            # If we can't read the security rules, we must not start.
+            print(f"CRITICAL SECURITY ERROR: Could not load {self.policy_file_path}")
             raise e
 
     def evaluate_prompt(self, prompt):
-        """Evaluate the prompt and decide which action should be taken."""
+        """Main entry point. Evaluates a prompt against all active rules."""
 
-        # Check prompt for blocked rules
-        is_blocked = self.is_blocked(prompt)
-        if is_blocked:
-            return {
-                "action": is_blocked["action"],
-                "prompt_out": prompt,
-                "reason": is_blocked["reason"]
-            }
+        # 1. BLOCKING CHECK (Highest Priority)
+        block_result = self._check_blocking(prompt)
+        if block_result:
+            return block_result
 
-        # Check prompt for PII data
-        is_redacted = self.is_redacted(prompt)
-        if is_redacted:
-            return {
-                "action": is_redacted["action"],
-                "prompt_out": is_redacted["prompt_out"],
-                "reason": is_redacted["reason"]
-            }
+        # 2. REDACTION CHECK (Medium Priority)
+        redact_result = self._apply_redaction(prompt)
+        if redact_result:
+            return redact_result
 
-        # Prompt is safe
+        # 3. ALLOW (Default)
         return {
             "action": "allow",
             "prompt_out": prompt,
             "reason": "Safe, no action required"
         }
 
-    def configure_redactors(self):
-        """Configure the redactors based on the policy config toggles."""
-        redaction_config = self.rules.get("redaction_rules", {})
-        redactors = {}
+    def _configure_redactors(self):
+        """Instantiate redactors based on JSON config."""
+        config = self.rules.get("redaction_rules", {})
+        self.redactors = {}
 
-        if redaction_config.get("redact_emails", False):
-            redactors["email"] = EmailRedactor()
-        if redaction_config.get("redact_phone_numbers", False):
-            redactors["phone"] = PhoneRedactor()
-        if redaction_config.get("redact_secrets", False):
-            redactors["secret"] = SecretRedactor()
-        if redaction_config.get("redact_credit_cards", False):
-            redactors["credit_card"] = CreditCardRedactor()
+        # Mapping config keys to Redactor classes
+        redactor_map = {
+            "redact_emails": ("Email", EmailRedactor),
+            "redact_phone_numbers": ("Phone", PhoneRedactor),
+            "redact_secrets": ("Secret", SecretRedactor),
+            "redact_credit_cards": ("CreditCard", CreditCardRedactor),
+        }
 
-        return redactors
+        for config_key, (name, cls) in redactor_map.items():
+            if config.get(config_key, False):
+                self.redactors[name] = cls()
+
+        print(f"Active Redactors: {list(self.redactors.keys())}")
         
-    def is_redacted(self, prompt):
-        """Check if a prompt contains any redacted information."""
-        # Start with the original prompt
-        redacted_prompt = prompt
+    def _apply_redaction(self, prompt: str) -> Optional[Dict[str, Any]]:
+        """Apply redactions to a prompt."""
+        current_prompt = prompt
+        affected_types = []
 
-        # List to store used redactors
-        redacted_categories = []
+        # Run prompt through the active redactors
+        for name, redactor in self.redactors.items():
+            original_prompt = current_prompt
+            current_prompt = redactor.redact_text(current_prompt)
+            
+            # If text changed, record which redactor did it
+            if current_prompt != original_prompt:
+                affected_types.append(name)
 
-        for redactor in self.redactors.values():
-            # Save prompt state before running redactor on it
-            previous_prompt = redacted_prompt
-
-            # Pass the prompt and process it for each redactor
-            redacted_prompt = redactor.redact_text(redacted_prompt)
-
-            if redacted_prompt != previous_prompt:
-                category_name = type(redactor).__name__.replace("Redactor", "")
-                redacted_categories.append(category_name)
-
-        if redacted_prompt != prompt:
+        # If any redaction happened, return the modified result
+        if current_prompt != prompt:
             return {
                 "action": "redact",
-                "prompt_out": redacted_prompt,
-                "reason" : f"P.I.I detected and redacted: {redacted_categories}"
+                "prompt_out": current_prompt,
+                "reason": f"P.I.I. detected and redacted: {affected_types}"
             }
-        else:
-            return {}
-
-    def is_blocked(self, prompt):
-        """Check if a prompt contains any blocked keywords."""
-        found_blocked_keywords = [keyword for keyword in self.rules["banned_keywords"] if keyword.lower() in prompt.lower()]
-
-        # Check if the prompt is too long
-        max_prompt_chars = self.rules.get("max_prompt_chars", 1000)
-        if len(prompt) > max_prompt_chars:
-            return {"action": "block", "reason": f"Prompt is too long. Max length is {max_prompt_chars} characters."}
-            
-        if found_blocked_keywords:
-            return {"action": "block", "reason": f"Found blocked keywords: {found_blocked_keywords}"}
         
-        return {}
+        return None
+
+    def _check_blocking(self, prompt: str) -> Optional[Dict[str, Any]]:
+        """Check if a prompt contains any blocked keywords."""
+
+        # Check 1: Length
+        max_prompt_chars = self.rules.get("max_prompt_chars", DEFAULT_MAX_CHARS)
+        if len(prompt) > max_prompt_chars:
+            return {
+                "action": "block",
+                "prompt_out": prompt,
+                "reason": f"Prompt is too long. Max length is {max_prompt_chars} characters."
+            }
+
+        # Check 2: Banned Keywords
+        prompt_lower = prompt.lower()
+        found_blocked_keywords = [
+            keyword for keyword in self.rules["banned_keywords"] 
+            if keyword.lower() in prompt_lower  
+        ]
+
+        if found_blocked_keywords:
+            return {
+                "action": "block",
+                "prompt_out": prompt,
+                "reason": f"Contains banned keywords: {found_blocked_keywords}"
+            }
+
+        return None
+
 
 if __name__ == "__main__":
+    # Run this in terminal -> python -m core.policy
     policy = Policy()
-    # print(policy.is_blocked("I hate you and i want to kill myself"))
-    # print(policy.is_redacted("my email is test@example.com and my phone number is 1234567890"))
+    print(policy.evaluate_prompt("my email is test@example.com and my phone number is 1234567890"))
     print(policy.evaluate_prompt("My name is John Doe and my api key is SECRET{1234567890}"))
     print(policy.evaluate_prompt("i woke up in the morning and ate breakfast"))
-    print(policy.evaluate_prompt("I hate youUUUUU and i want to KILL myself"))
+    print(policy.evaluate_prompt("I hate youUUUUU and i want to KILl someone"))
