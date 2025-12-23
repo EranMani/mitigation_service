@@ -4,7 +4,6 @@ The server is responsible for getting requests from the client and processing th
 
 import http.server
 import json
-from operator import truediv
 import time
 import socketserver
 import threading
