@@ -30,7 +30,31 @@ class Policy:
 
     def eval(self, prompt):
         """Evaluate the prompt and decide which action should be taken."""
-        pass
+
+        # Check prompt for blocked rules
+        is_blocked = self.is_blocked(prompt)
+        if is_blocked:
+            return {
+                "action": is_blocked["action"],
+                "prompt_out": prompt,
+                "reason": is_blocked["reason"]
+            }
+
+        # Check prompt for PII data
+        is_redacted = self.is_redacted(prompt)
+        if is_redacted:
+            return {
+                "action": is_redacted["action"],
+                "prompt_out": is_redacted["prompt_out"],
+                "reason": is_redacted["reason"]
+            }
+
+        # Prompt is safe
+        return {
+            "action": "allow",
+            "prompt_out": prompt,
+            "reason": "Safe, no action required"
+        }
 
     def configure_redactors(self):
         """Configure the redactors based on the policy config toggles."""
@@ -52,22 +76,41 @@ class Policy:
         """Check if a prompt contains any redacted information."""
         # Start with the original prompt
         redacted_prompt = prompt
+
+        # List to store used redactors
+        redacted_categories = []
+
         for redactor in self.redactors.values():
+            # Save prompt state before running redactor on it
+            previous_prompt = redacted_prompt
+
             # Pass the prompt and process it for each redactor
             redacted_prompt = redactor.redact_text(redacted_prompt)
 
-        return redacted_prompt
+            if redacted_prompt != previous_prompt:
+                category_name = type(redactor).__name__.replace("Redactor", "")
+                redacted_categories.append(category_name)
+
+        if redacted_prompt != prompt:
+            return {
+                "action": "redact",
+                "prompt_out": redacted_prompt,
+                "reason" : f"P.I.I detected and redacted: {redacted_categories}"
+            }
+        else:
+            return {}
 
     def is_blocked(self, prompt):
         """Check if a prompt contains any blocked keywords."""
         found_blocked_keywords = [keyword for keyword in self.rules["banned_keywords"] if keyword in prompt.lower()]
         if found_blocked_keywords:
-            print(f"Found blocked keywords: {found_blocked_keywords}")
-            return True
+            return {"action": "block", "reason": f"Found blocked keywords: {found_blocked_keywords}"}
         else:
-            return False
+            return {}
 
 if __name__ == "__main__":
     policy = Policy()
-    print(policy.is_blocked("I hate you and i want to kill myself"))
-    print(policy.is_redacted("my email is test@example.com and my phone number is 1234567890"))
+    # print(policy.is_blocked("I hate you and i want to kill myself"))
+    # print(policy.is_redacted("my email is test@example.com and my phone number is 1234567890"))
+    print(policy.eval("My name is John Doe and my api key is SECRET{1234567890}"))
+    print(policy.eval("i woke up in the morning and ate breakfast"))
