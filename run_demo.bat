@@ -81,9 +81,15 @@ echo.
 echo.
 
 :: --- TEST 10: History Check ---
-echo [TEST 10] Checking Audit Log (Last 3 items)
-:: Uses powershell to slice the JSON output for readability
+echo [TEST 10] Checking Audit Log (Last 20 items)
 curl -s http://localhost:8000/history
+echo.
+echo.
+:: --- TEST 11: Dynamic History ---
+echo [TEST 11] Now Checking Audit Log (Last 4 items)
+:: IMPORTANT: Use quotes "..." around URLs with special characters like ? or &
+curl -s "http://localhost:8000/history?n=4"
+echo.
 echo.
 echo.
 

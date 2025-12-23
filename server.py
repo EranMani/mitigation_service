@@ -7,6 +7,7 @@ import json
 import time
 from collections import deque
 from core.policy import Policy
+from urllib.parse import urlparse, parse_qs
 
 
 class RequestHandler(http.server.BaseHTTPRequestHandler):
@@ -15,7 +16,7 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
     policy = Policy()
 
     # Keep last 20 history items 
-    history = deque(maxlen=20)
+    history = deque(maxlen=100)
 
     # ========== END POINTS ========== #
     def do_POST(self):
@@ -29,10 +30,30 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(404, "Not Found")
 
     def do_GET(self):
-        """Handle GET requests. Return the last N requests"""
-        if self.path == "/history":
-            # Convert history deque to a list so JSON can read it
-            self._send_json({"history": list(self.history)})
+        """Handle GET requests with support for query parameters."""
+        # Parse the URL cleanly (separates path from query params)
+        parsed_url = urlparse(self.path)
+
+        if parsed_url.path == "/history":
+            # Extract 'n' from query params (e.g., ?n=5)
+            query_params = parse_qs(parsed_url.query)
+            
+            try:
+                # Get 'n', default to ['20'], take the first item, convert to int
+                limit = int(query_params.get("n", ["20"])[0])
+            except (ValueError, TypeError):
+                limit = 20
+
+            # Get the data
+            full_history = list(self.history)
+            
+            # If limit is 0 or negative, return everything (or handle as error)
+            if limit > 0:
+                response_data = full_history[-limit:]
+            else:
+                response_data = full_history[-20:]
+
+            self._send_json({"history": response_data})
         else:
             self.send_error(404, "Not Found")
 
@@ -112,7 +133,7 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(json.dumps(data).encode("utf-8"))
 
     
-    
+
 if __name__ == "__main__":
     # Bind to 0.0.0.0 in order for this to work on docker
     server = http.server.HTTPServer(("0.0.0.0", 8000), RequestHandler)
