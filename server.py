@@ -4,6 +4,7 @@ The server is responsible for getting requests from the client and processing th
 
 import http.server
 import json
+from sys import exception
 import time
 from collections import UserDict, deque
 from policy import Policy
@@ -74,6 +75,24 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             # Convert the data to a JSON string and encode it to bytes
             self.wfile.write(json.dumps(response_data).encode("utf-8"))
+            
+        elif self.path == "/reload":
+            # Trigger a reload of the policy
+            try:
+                self.policy.load_policy()
+                message = "Policy reloaded successfully"
+                status_code = 200
+            except Exception as e:
+                # If the JSON is broken, raise an error
+                message = f"Failed to reload policy: {str(e)}"
+                status_code = 500
+
+            # Send status
+            self.send_response(status_code)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"message": message}).encode("utf-8"))
+
         else:
             self.send_error(404, "Not Found")
 
