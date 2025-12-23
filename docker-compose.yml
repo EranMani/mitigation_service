@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  mitigation-service:
+    build: .
+    container_name: mitigation-app
+    ports:
+      - "8000:8000"
+
+    volumes:
+      - ./policy.json:/app/policy.json
