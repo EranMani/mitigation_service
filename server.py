@@ -176,7 +176,7 @@ class MockICAPHandler(socketserver.StreamRequestHandler):
             # 204 = No modification needed (allow)
             # 200 = Modified version follows (redact/block)
             if decision["action"] == "allow":
-                response = b"204 No Modification Needed\r\n"
+                response = b"ICAP/1.0 204 No Content\r\n\r\n"
 
             else:
                 header = b"ICAP/1.0 200 OK\r\nISTag: \"Mitigation-1.0\"\r\n\r\n"
