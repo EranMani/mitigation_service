@@ -6,5 +6,11 @@
         "self-harm",
         "kill",
         "murder"
-    ]
+    ],
+    "redaction_rules": {
+        "redact_emails": true,
+        "redact_phone_numbers": true,
+        "redact_secrets": true,
+        "redact_credit_cards": true
+    }
 }
