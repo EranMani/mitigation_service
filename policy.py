@@ -1,5 +1,6 @@
 """
 This module provides a Policy class that loads policy rules from a JSON file
+The policy will decide which action priority is best suitable for the prompt - block, redact or allow
 """
 
 import json
@@ -11,16 +12,25 @@ POLICY_FILE_PATH = Path(__file__).parent / "policy.json"
 class Policy:
     """Manages policy rules loaded from a JSON file and assign the required action."""
     
-    def __init__(self, policy_file_path):
+    def __init__(self, policy_file_path=POLICY_FILE_PATH):
         """Initialize the Policy instance by loading policy rules from a JSON file."""
-        with open(policy_file_path, "r") as policy_rules:
+        self.policy_file_path = policy_file_path
+
+        # Load the policy rules and setup redactors
+        self.load_policy()
+        
+    def load_policy(self):
+        """Load the rules and setup redactors. Can also be used to reload the policy when needed."""
+        with open(self.policy_file_path, "r") as policy_rules:
             self.rules = json.load(policy_rules)
-            print(f"Loaded {len(self.rules)} policy rules from {policy_file_path}")
+        print(f"Loaded {len(self.rules)} policy rules from {self.policy_file_path}")
 
-        # Initialize redactors based on the policy config toggles
         self.redactors = self.configure_redactors()
-        print(f"Initialized the following redactors: {[redactor for redactor in self.redactors.keys()]}")       
+        print(f"Initialized the following redactors: {[redactor for redactor in self.redactors.keys()]}")    
 
+    def eval(self, prompt):
+        """Evaluate the prompt and decide which action should be taken."""
+        pass
 
     def configure_redactors(self):
         """Configure the redactors based on the policy config toggles."""
@@ -38,6 +48,15 @@ class Policy:
 
         return redactors
         
+    def is_redacted(self, prompt):
+        """Check if a prompt contains any redacted information."""
+        # Start with the original prompt
+        redacted_prompt = prompt
+        for redactor in self.redactors.values():
+            # Pass the prompt and process it for each redactor
+            redacted_prompt = redactor.redact_text(redacted_prompt)
+
+        return redacted_prompt
 
     def is_blocked(self, prompt):
         """Check if a prompt contains any blocked keywords."""
@@ -49,5 +68,6 @@ class Policy:
             return False
 
 if __name__ == "__main__":
-    policy = Policy(POLICY_FILE_PATH)
+    policy = Policy()
     print(policy.is_blocked("I hate you and i want to kill myself"))
+    print(policy.is_redacted("my email is test@example.com and my phone number is 1234567890"))
