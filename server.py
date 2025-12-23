@@ -5,6 +5,8 @@ The server is responsible for getting requests from the client and processing th
 import http.server
 import json
 import time
+import socketserver
+import threading
 from collections import deque
 from core.policy import Policy
 from urllib.parse import urlparse, parse_qs
@@ -133,6 +135,49 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(json.dumps(data).encode("utf-8"))
 
     
+class MockICAPHandler(socketserver.StreamRequestHandler):
+    """
+    A minimal mock ICAP adapter that listens on port 1344.
+    It reuses the same Policy engine as the HTTP server.
+    """
+
+    def handle(self):
+        try:
+            # 1. Read the raw request data
+            self.data = self.rfile.realine().strip().decode("utf-8")
+            print(f"[ICAP] Received request: {self.data}")
+
+            if not self.data: return
+
+            # 2. Extract Prompt
+            # Input example: REQMOD icap://server/mitigate PROMPT=Hello World
+            if "PROMPT=" in self.data:
+                prompt = self.data.split("PROMPT=")[1][1]
+            else:
+                # Fallack. Use whole line as the prompt
+                prompt = self.data
+
+            # 3. Reuse the same policy engine instance
+            decision = RequestHandler.policy.evaluate_prompt(prompt)
+
+            # 4. Send Response 
+            # 204 = No modification needed (allow)
+            # 200 = Modified version follows (redact/block)
+            if decision["action"] == "allow":
+                response = b"204 No Modification Needed\r\n"
+
+            else:
+                header = b"ICAP/1.0 200 OK\r\nISTag: \"Mitigation-1.0\"\r\n\r\n"
+                response = header + decision["prompt_out"].encode()
+
+            self.wfile.write(response)
+            print(f"[ICAP] Sent response: {response.decode('utf-8')}")
+        except Exception as e:
+            print(f"[ICAP] Error: {str(e)}")
+            self.wfile.write(b"500 Internal Server Error\r\n")
+
+
+
 
 if __name__ == "__main__":
     # Bind to 0.0.0.0 in order for this to work on docker
