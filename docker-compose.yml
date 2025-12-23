@@ -6,6 +6,7 @@ services:
     container_name: mitigation-app
     ports:
       - "8000:8000"
+      - "1344:1344"
 
     volumes:
       - ./policy.json:/app/policy.json

@@ -9,6 +9,7 @@ COPY . .
 
 # 4. Tell Docker we listen on port 8000
 EXPOSE 8000
+EXPOSE 1344
 
 # 5. Run the server when the container starts
 CMD ["python", "server.py"]

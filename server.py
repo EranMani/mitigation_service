@@ -4,6 +4,7 @@ The server is responsible for getting requests from the client and processing th
 
 import http.server
 import json
+from operator import truediv
 import time
 import socketserver
 import threading
@@ -114,7 +115,8 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(400, "Invalid JSON")
             return None
 
-    def _log_to_history(self, user_id, prompt, policy_decision):
+    @classmethod
+    def _log_to_history(cls, user_id, prompt, policy_decision):
         """Helper to log the request to the history."""
         # Create a new entry in the history
         log_entry = {
@@ -125,7 +127,7 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
             "reason": policy_decision["reason"]
         }
 
-        self.history.append(log_entry)
+        cls.history.append(log_entry)
 
     def _send_json(self, data, status=200):
         """Helper to standardize sending JSON response."""
@@ -141,24 +143,35 @@ class MockICAPHandler(socketserver.StreamRequestHandler):
     It reuses the same Policy engine as the HTTP server.
     """
 
+    """
+    NOTE: Not using a web framework here. Just listening to a raw data stream.
+    NOTE: No conversation is happening, like in a http.server request. We need to do the conversation manually.
+    NOTE: b"204 .... " => tells python to treat this as raw bytes, not a string.
+    NOTE: ISTag = ICAP Service Tag. It tells the proxy this file was scanned and so it doesnt need to ask the server again.
+    """
+
     def handle(self):
         try:
-            # 1. Read the raw request data
-            self.data = self.rfile.realine().strip().decode("utf-8")
+            # 1. Read the raw request data, byte by byte
+            self.data = self.rfile.readline().strip().decode("utf-8")
             print(f"[ICAP] Received request: {self.data}")
 
             if not self.data: return
 
             # 2. Extract Prompt
             # Input example: REQMOD icap://server/mitigate PROMPT=Hello World
+            # Look for the "PROMPT=" marker
             if "PROMPT=" in self.data:
-                prompt = self.data.split("PROMPT=")[1][1]
+                # Split only once (1) just in case the prompt itself contains "PROMPT="
+                prompt = self.data.split("PROMPT=", 1)[1]
             else:
                 # Fallack. Use whole line as the prompt
                 prompt = self.data
 
             # 3. Reuse the same policy engine instance
             decision = RequestHandler.policy.evaluate_prompt(prompt)
+
+            RequestHandler._log_to_history("icap_client", prompt, decision)
 
             # 4. Send Response 
             # 204 = No modification needed (allow)
@@ -179,12 +192,40 @@ class MockICAPHandler(socketserver.StreamRequestHandler):
 
 
 
+
 if __name__ == "__main__":
-    # Bind to 0.0.0.0 in order for this to work on docker
-    server = http.server.HTTPServer(("0.0.0.0", 8000), RequestHandler)
+    '''
+    NOTE: Bind to 0.0.0.0 in order for this to work on docker
+    NOTE: Analogy - we are building a kitchen that knows how to check food (prompts)
+          Server 1 (HTTP): The Dining Room. Customers sit down, order politely, and get a full service meal.
+          Server 2 (ICAP): The Drive-Thru. Cars pull up, shout raw orders, and get a quick bag of food.
+          This code manages both servers at the same time. One Manager (Threading) keeping them both alive.
+
+          Background Thread: Handles HTTP requests on port 8000.
+          Main Thread: Handles ICAP requests on port 1344.
+    '''
+
+    # 1. Configure HTTP Server (Port 8000)
+    http_server = http.server.HTTPServer(("0.0.0.0", 8000), RequestHandler)
+
+    # 2. Configure ICAP Server (Port 1344)
+    socketserver.TCPServer.allow_reuse_address = True
+    icap_server = socketserver.TCPServer(("0.0.0.0", 1344), MockICAPHandler)
+
+    # 3. Run them in parallel using threads
     print("Server started on port 8000...")
+    # Run the http server in a separate thread, let the ICAP server run in the main thread
+    # NOTE: Non-blocking operation. The main thread can still handle ICAP requests.
+    http_thread = threading.Thread(target=http_server.serve_forever)
+    # NOTE: A "Daemon" is a background worker that doesn't matter once the main boss leaves. It will be killed once the main program is done.
+    http_thread.daemon = True
+    http_thread.start()
+
+    print("Starting ICAP (Mock) Server on port 1344...")
     try:
-        server.serve_forever()
+        # Main thread runs ICAP
+        icap_server.serve_forever()
     except KeyboardInterrupt:
-        print("\nStopping server...")
-        server.server_close()
+        print("\nStopping servers...")
+        icap_server.shutdown()
+        http_server.shutdown()
