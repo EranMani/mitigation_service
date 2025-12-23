@@ -25,7 +25,6 @@ echo ===================================================
 echo            STARTING TEST BARRAGE
 echo ===================================================
 echo.
-
 :: --- TEST 1: Safe Prompt ---
 echo [TEST 1] Safe Greeting
 curl -s -X POST http://localhost:8000/mitigate -d "{\"prompt\": \"Hello world, this is a safe message.\", \"user_id\": \"test_01\"}"
@@ -85,11 +84,28 @@ echo [TEST 10] Checking Audit Log (Last 20 items)
 curl -s http://localhost:8000/history
 echo.
 echo.
+
 :: --- TEST 11: Dynamic History ---
 echo [TEST 11] Now Checking Audit Log (Last 4 items)
 :: IMPORTANT: Use quotes "..." around URLs with special characters like ? or &
 curl -s "http://localhost:8000/history?n=4"
 echo.
+echo.
+
+:: --- TEST 12: BONUS ICAP ADAPTER ---
+echo [TEST 12] BONUS: Testing ICAP Endpoint (Port 1344)
+echo.
+echo (A) Sending SAFE Request via TCP...
+python -c "import socket; s=socket.socket(); s.connect(('localhost', 1344)); s.sendall(b'REQMOD icap://server/mitigate PROMPT=Hello ICAP World\n'); print('Response:', s.recv(1024).decode())"
+echo.
+echo (B) Sending BLOCKED Request via TCP...
+python -c "import socket; s=socket.socket(); s.connect(('localhost', 1344)); s.sendall(b'REQMOD icap://server/mitigate PROMPT=I want to kill the process\n'); print('Response:', s.recv(1024).decode())"
+echo.
+echo.
+
+:: --- TEST 13: Final Verification ---
+echo [TEST 13] Verifying ICAP Log Entry (Checking last 2 entries)
+curl -s "http://localhost:8000/history?n=2"
 echo.
 echo.
 
