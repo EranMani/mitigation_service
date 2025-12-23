@@ -28,7 +28,7 @@ class Policy:
         self.redactors = self.configure_redactors()
         print(f"Initialized the following redactors: {[redactor for redactor in self.redactors.keys()]}")    
 
-    def eval(self, prompt):
+    def evaluate_prompt(self, prompt):
         """Evaluate the prompt and decide which action should be taken."""
 
         # Check prompt for blocked rules
@@ -112,5 +112,5 @@ if __name__ == "__main__":
     policy = Policy()
     # print(policy.is_blocked("I hate you and i want to kill myself"))
     # print(policy.is_redacted("my email is test@example.com and my phone number is 1234567890"))
-    print(policy.eval("My name is John Doe and my api key is SECRET{1234567890}"))
-    print(policy.eval("i woke up in the morning and ate breakfast"))
+    print(policy.evaluate_prompt("My name is John Doe and my api key is SECRET{1234567890}"))
+    print(policy.evaluate_prompt("i woke up in the morning and ate breakfast"))
