@@ -21,12 +21,21 @@ class Policy:
         
     def load_policy(self):
         """Load the rules and setup redactors. Can also be used to reload the policy when needed."""
-        with open(self.policy_file_path, "r") as policy_rules:
-            self.rules = json.load(policy_rules)
-        print(f"Loaded {len(self.rules)} policy rules from {self.policy_file_path}")
+        try:
+            # Load policy rules
+            with open(self.policy_file_path, "r") as policy_rules:
+                self.rules = json.load(policy_rules)
+            print(f"Loaded {len(self.rules)} policy rules from {self.policy_file_path}")
 
-        self.redactors = self.configure_redactors()
-        print(f"Initialized the following redactors: {[redactor for redactor in self.redactors.keys()]}")    
+            self.redactors = self.configure_redactors()
+            print(f"Initialized the following redactors: {[redactor for redactor in self.redactors.keys()]}")    
+
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            print(f"CRITICAL SECURITY ERROR!!!")
+            print(f"Could not load policy file: {self.policy_file_path}")
+            print(f"Error details: {e}")
+            print(f"Server cannot start without valid rules. Exiting...")
+            raise e
 
     def evaluate_prompt(self, prompt):
         """Evaluate the prompt and decide which action should be taken."""
@@ -102,7 +111,7 @@ class Policy:
 
     def is_blocked(self, prompt):
         """Check if a prompt contains any blocked keywords."""
-        found_blocked_keywords = [keyword for keyword in self.rules["banned_keywords"] if keyword in prompt.lower()]
+        found_blocked_keywords = [keyword for keyword in self.rules["banned_keywords"] if keyword.lower() in prompt.lower()]
         if found_blocked_keywords:
             return {"action": "block", "reason": f"Found blocked keywords: {found_blocked_keywords}"}
         else:
@@ -114,3 +123,4 @@ if __name__ == "__main__":
     # print(policy.is_redacted("my email is test@example.com and my phone number is 1234567890"))
     print(policy.evaluate_prompt("My name is John Doe and my api key is SECRET{1234567890}"))
     print(policy.evaluate_prompt("i woke up in the morning and ate breakfast"))
+    print(policy.evaluate_prompt("I hate youUUUUU and i want to KILL myself"))
