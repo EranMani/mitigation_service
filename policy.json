@@ -7,6 +7,7 @@
         "kill",
         "murder"
     ],
+    "max_prompt_chars": 200,
     "redaction_rules": {
         "redact_emails": true,
         "redact_phone_numbers": true,

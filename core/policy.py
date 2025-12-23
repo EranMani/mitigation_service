@@ -112,10 +112,16 @@ class Policy:
     def is_blocked(self, prompt):
         """Check if a prompt contains any blocked keywords."""
         found_blocked_keywords = [keyword for keyword in self.rules["banned_keywords"] if keyword.lower() in prompt.lower()]
+
+        # Check if the prompt is too long
+        max_prompt_chars = self.rules.get("max_prompt_chars", 1000)
+        if len(prompt) > max_prompt_chars:
+            return {"action": "block", "reason": f"Prompt is too long. Max length is {max_prompt_chars} characters."}
+            
         if found_blocked_keywords:
             return {"action": "block", "reason": f"Found blocked keywords: {found_blocked_keywords}"}
-        else:
-            return {}
+        
+        return {}
 
 if __name__ == "__main__":
     policy = Policy()
