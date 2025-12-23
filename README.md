@@ -3,10 +3,10 @@
 A lightweight, policy-driven HTTP service designed to redact PII (Personally Identifiable Information) and enforce security rules on text prompts before they reach downstream LLMs.
 
 **Key Capabilities:**
-- 🚫 **Blocking:** Automatically blocks prompts containing banned keywords (e.g., violence, self-harm).
-- 🔒 **Redaction:** Detects and masks PII such as Emails, Phone Numbers, Secrets, and Credit Cards.
-- 📜 **Audit History:** Maintains a searchable history of recent requests and actions.
-- 🐳 **Dockerized:** Ready to deploy in any containerized environment.
+-  **Blocking:** Automatically blocks prompts containing banned keywords (e.g., violence, self-harm).
+-  **Redaction:** Detects and masks PII such as Emails, Phone Numbers, Secrets, and Credit Cards.
+-  **Audit History:** Maintains a searchable history of recent requests and actions.
+-  **Dockerized:** Ready to deploy in any containerized environment.
 
 ---
 
@@ -39,14 +39,25 @@ Designed for security first. If the policy rules cannot be loaded (missing or in
 
 ## 🛠️ Installation & Setup
 
-### Option A: Run with Docker (Recommended)
-This ensures the environment matches exactly what was developed.
-
 **Prerequisites:**
-Ensure you are in the project root directory:
+* Docker Desktop installed and running.
+* Ensure you are in the project root directory:
 ```bash
 cd mitigation_service
 ```
+
+### ⚡ Quick Start (Windows)
+I have provided batch scripts to automate the entire build and run process.
+
+| File | Description |
+| :--- | :--- |
+| **`run_server.bat`** | **Start Here.** Builds the Docker image, handles port conflicts, and starts the server. |
+| **`run_demo.bat`** | **Demo Mode.** Starts the server *and* automatically fires 10 distinct test cases (Allow, Block, Redact) to verify all features. |
+---
+
+### Option A: Run with Docker (Recommended)
+This ensures the environment matches exactly what was developed.
+If you prefer running commands manually:
 
 **1. Build the Image**
 ```bash
@@ -60,15 +71,13 @@ docker run -p 8000:8000 mitigation-service
 
 The server will start listening on port 8000.
 
-
-
 ### Option B: Run Locally (Python)
 If you prefer to run it directly on your machine.
 ```bash
 python server.py
 ```
 
----
+
 
 ## 🚀 Usage
 **1. Mitigate a Prompt (POST)**
@@ -95,17 +104,27 @@ Response (Blocked Example)
 ```
 
 **2. Check History (GET)**
-View the last 20 interactions for auditing purposes.
+View the last 20 interactions (by default) for auditing purposes
+However, you can choose how many last requests you want to view by adding ?n=number to the end-point
 
 Request using CMD
 ```bash
 curl http://localhost:8000/history
+```
+Get specific number of recent requests (e.g., last 5)
+```bash
+curl http://localhost:8000/history?n=5
 ```
 
 Request using POWERSHELL
 ```bash
 Invoke-RestMethod -Uri "http://localhost:8000/history" -Method Get | Select-Object -ExpandProperty history | Format-Table
 ```
+Get specific number of recent requests (e.g., last 5)
+```bash
+Invoke-RestMethod -Uri "http://localhost:8000/history?n=5" -Method Get | Select-Object -ExpandProperty history | Format-Table
+```
+
 
 Response Example
 ```bash
@@ -120,6 +139,19 @@ Response Example
     }
   ]
 }
+```
+
+**3. Reload Policy (POST)**
+Updates policy configuration without restarting the server
+
+Request using CMD
+```bash
+curl -X POST http://localhost:8000/reload
+```
+
+Request using Powershell
+```bash
+Invoke-RestMethod -Method Post -Uri "http://localhost:8000/reload"
 ```
 
 ---
