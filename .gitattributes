@@ -1,0 +1,9 @@
+# Ensure scripts and Makefiles always use Linux line endings
+*.sh text eol=lf
+Makefile text eol=lf
+
+# Batch files should always use Windows line endings
+*.bat text eol=crlf
+
+# Default behavior for other files
+* text=auto

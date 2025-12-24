@@ -60,7 +60,7 @@ In addition to the HTTP API, the service exposes a TCP endpoint on **port 1344**
 > **Note on Constraints & Dependencies:**
 > 1. **Standard Library Only:** The core service strictly follows the assignment constraint to use **only Python's Standard Library** (no `Flask`, `FastAPI`, etc.).
 > 2. **Offline Runtime:** As per requirements, the service is designed to **run without internet access** once built.
->    * ⚠️ The initial build may take **2-5 minutes** to complete.
+>    * ⚠️ The initial build may take **5-10 minutes** to complete.
 >    * This is intentional: the Dockerfile is installing `torch` and **downloading the AI model** to "bake" it into the image.
 >    * The only external dependency is the **Bonus Semantic Feature** (`sentence-transformers`).
 >    * To support offline execution, the AI model is pre-downloaded and baked into the Docker image during the build phase (`download_model.py`).
@@ -79,6 +79,10 @@ cd mitigation_service
 ```bash
 # Build and Run the service
 make run
+
+# Run the Automated Demo (Equivalent to run_demo.bat)
+# Note: This runs the 'run_demo.sh' script to fire 20 test cases.
+make demo
 
 # Stop and Clean up containers
 make clean
@@ -265,4 +269,10 @@ If you see `permission denied while trying to connect to the Docker daemon socke
   ```bash
   sudo apt-get update && sudo apt-get install make -y
   ```
+
+**3. "command not found" or "\r" errors when running demo on Linux**
+* **Cause:** The `run_demo.sh` file may have been saved with Windows Line Endings (CRLF) instead of Linux (LF).
+* **Fix:** Convert the file to LF using `dos2unix` or a text editor, or run:
+  ```bash
+  sed -i 's/\r$//' run_demo.sh
 

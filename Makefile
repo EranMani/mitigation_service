@@ -1,17 +1,18 @@
 # Makefile for Mitigation Service
 
-.PHONY: run clean build
+.PHONY: run clean build demo
 
-# Default target
+# Build and Start
 run:
 	@echo "Building and starting the service..."
 	docker compose up --build
 
-# Stop and remove containers
+# Stop and Clean
 clean:
 	@echo "Cleaning up containers..."
 	docker compose down
 
-# Just build the image
-build:
-	docker compose build
+# Run the Automated Demo (Linux)
+demo:
+	@echo "Running automated demo script..."
+	bash run_demo.sh
