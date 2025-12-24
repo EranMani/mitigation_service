@@ -6,7 +6,7 @@ The policy will decide which action priority is best suitable for the prompt - b
 import json
 from pathlib import Path
 from typing import Dict, Any, Optional
-from .redactors import EmailRedactor, PhoneRedactor, SecretRedactor, CreditCardRedactor
+from .redactors import EmailRedactor, PhoneRedactor, SecretRedactor, CreditCardRedactor, SemanticRedactor
 
 # Constants
 POLICY_FILENAME = "policy.json"
@@ -77,6 +77,16 @@ class Policy:
         for config_key, (name, cls) in redactor_map.items():
             if config.get(config_key, False):
                 self.redactors[name] = cls()
+
+        semantic_config = self.rules.get("semantic_blocking", {})
+        if semantic_config.get("enabled", False):
+            from .redactors import SemanticRedactor
+            
+            phrases = semantic_config.get("banned_phrases", [])
+            threshold = semantic_config.get("threshold", 0.7)
+            
+            # We add it with a special name
+            self.redactors["SemanticBlock"] = SemanticRedactor(phrases, threshold)
 
         print(f"Active Redactors: {list(self.redactors.keys())}")
         
