@@ -48,6 +48,8 @@ Designed for security first. If the policy rules cannot be loaded (missing or in
 
 ### 5. ICAP Adapter (Mock)
 In addition to the HTTP API, the service exposes a TCP endpoint on **port 1344** that simulates an ICAP (Internet Content Adaptation Protocol) interface.
+* **What is ICAP?** It is a standard protocol used by proxies and firewalls to offload content scanning (e.g., checking a file for viruses or a URL for safety).
+* **Why this matters:** This adapter demonstrates **Logic Reuse**. By abstracting the `Policy` engine from the network layer, the exact same mitigation rules (Block/Redact/Semantic) are applied to both REST API traffic and raw TCP stream traffic without duplicating a single line of business logic.
 * **Goal:** Demonstrate how the core `Policy` engine can be reused across different protocols (HTTP vs ICAP) without code duplication.
 * **Usage:** Accepts raw `REQMOD ... PROMPT=...` packets.
 
@@ -58,9 +60,13 @@ In addition to the HTTP API, the service exposes a TCP endpoint on **port 1344**
 > **Note on Constraints & Dependencies:**
 > 1. **Standard Library Only:** The core service strictly follows the assignment constraint to use **only Python's Standard Library** (no `Flask`, `FastAPI`, etc.).
 > 2. **Offline Runtime:** As per requirements, the service is designed to **run without internet access** once built.
+>    * ⚠️ The initial build may take **2-5 minutes** to complete.
+>    * This is intentional: the Dockerfile is installing `torch` and **downloading the AI model** to "bake" it into the image.
 >    * The only external dependency is the **Bonus Semantic Feature** (`sentence-transformers`).
 >    * To support offline execution, the AI model is pre-downloaded and baked into the Docker image during the build phase (`download_model.py`).
+>    * **Benefit:** This ensures the service works **100% offline** and starts up instantly on subsequent runs.
 >    * If the library is missing, the code degrades gracefully and starts with semantic blocking disabled.
+
 
 **Prerequisites:**
 * Docker Desktop installed and running.
