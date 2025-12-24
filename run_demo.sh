@@ -16,8 +16,8 @@ echo "[2/3] STARTING SERVER (Detached Mode)..."
 docker compose up -d
 
 echo ""
-echo "[3/3] WAITING FOR SERVER TO WAKE UP (15 seconds)..."
-sleep 15
+echo "[3/3] WAITING FOR SERVER TO WAKE UP (8 seconds)..."
+sleep 8
 
 echo ""
 echo "==================================================="
