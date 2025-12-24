@@ -75,6 +75,15 @@ In addition to the HTTP API, the service exposes a TCP endpoint on **port 1344**
 cd mitigation_service
 ```
 
+### ⚡ Quick Start (Linux / macOS)
+```bash
+# Build and Run the service
+make run
+
+# Stop and Clean up containers
+make clean
+```
+
 ### ⚡ Quick Start (Windows)
 I have provided batch scripts to automate the entire build and run process.
 
@@ -86,7 +95,7 @@ I have provided batch scripts to automate the entire build and run process.
 
 ### Option A: Run with Docker (Recommended)
 This ensures the environment matches exactly what was developed.
-If you prefer running commands manually:
+If you prefer running raw Docker commands:
 
 ```bash
 docker compose up --build
@@ -236,3 +245,24 @@ Modify **policy.json** to change the behavior of the service. You can add new ba
 }
 
 ```
+
+---
+
+## ❓ Troubleshooting
+
+**1. Docker "Permission Denied" on Linux/WSL**
+If you see `permission denied while trying to connect to the Docker daemon socket`:
+* **Cause:** Your Linux user is not in the `docker` group.
+* **Fix:**
+  ```bash
+  sudo usermod -aG docker $USER
+  # Then log out and log back in for changes to take effect.
+  ```
+
+**2. "Make" command not found**
+* **Cause:** make is not installed by default on some minimal Linux distros (or WSL).
+* **Fix:**
+  ```bash
+  sudo apt-get update && sudo apt-get install make -y
+  ```
+
