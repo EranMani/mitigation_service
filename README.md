@@ -55,6 +55,13 @@ In addition to the HTTP API, the service exposes a TCP endpoint on **port 1344**
 
 ## 🛠️ Installation & Setup
 
+> **Note on Constraints & Dependencies:**
+> 1. **Standard Library Only:** The core service strictly follows the assignment constraint to use **only Python's Standard Library** (no `Flask`, `FastAPI`, etc.).
+> 2. **Offline Runtime:** As per requirements, the service is designed to **run without internet access** once built.
+>    * The only external dependency is the **Bonus Semantic Feature** (`sentence-transformers`).
+>    * To support offline execution, the AI model is pre-downloaded and baked into the Docker image during the build phase (`download_model.py`).
+>    * If the library is missing, the code degrades gracefully and starts with semantic blocking disabled.
+
 **Prerequisites:**
 * Docker Desktop installed and running.
 * Ensure you are in the project root directory:
@@ -181,8 +188,10 @@ Response Example
 }
 ```
 
-**3. Reload Policy (POST)**
-Updates policy configuration without restarting the server
+**4. Reload Policy (POST)**
+Updates the live policy configuration without restarting the server.
+* **Purpose:** Allows admins to add banned words or toggle redactors instantly.
+* **Behavior:** The server attempts to parse `policy.json`. If valid, the new rules take effect immediately. If invalid (e.g., bad JSON syntax), the server keeps the old policy active and returns a 500 error to prevent downtime.
 
 Request using CMD
 ```bash
