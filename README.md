@@ -5,6 +5,7 @@ A lightweight, policy-driven HTTP service designed to redact PII (Personally Ide
 **Key Capabilities:**
 -  **Blocking:** Automatically blocks prompts containing banned keywords (e.g., violence, self-harm).
 -  **Redaction:** Detects and masks PII such as Emails, Phone Numbers, Secrets, and Credit Cards.
+-  **Semantic Analysis:** Uses an offline AI model to detect dangerous *intent* (e.g., "how to make a bomb") even if specific keywords are missing.
 -  **Audit History:** Maintains a searchable history of recent requests and actions.
 -  **Dockerized:** Ready to deploy in any containerized environment.
 
@@ -13,13 +14,23 @@ A lightweight, policy-driven HTTP service designed to redact PII (Personally Ide
 **Architecture**
 - server.py (The Doorman): Handles HTTP requests, validation, and history logging.
 - policy.py (The Brain): Loads rules and orchestrates the decision-making process.
+- semantic.py (The Investigator): Uses a localized AI model (`sentence-transformers`) to analyze prompt intent.
 - redactors.py (The Workers): Individual classes responsible for regex-based text replacement.
 
 ---
 
 ## ✨ Features
 
-### 1. Robust PII Redaction
+### 1. 🧠 AI Semantic Blocking
+Unlike simple keyword lists, the service uses a local AI model (`all-MiniLM-L6-v2`) to understand the **meaning** of a prompt.
+* **How it works:** It calculates the semantic distance between the user's prompt and a list of "banned concepts" (e.g., "instructions for illegal acts").
+* **Offline Capable:** The AI model is baked into the Docker image, so it runs 100% offline with no internet access required at runtime.
+* **Example:**
+    * *User Prompt:* "I want to end my life."
+    * *Keyword Match:* Fails (if "kill" isn't used).
+    * *Semantic Match:* **BLOCKS** (Similar to concept "suicide").
+
+### 2. Robust PII Redaction
 The service uses a modular `Redactor` architecture to sanitize inputs.
 
 | Type | Pattern | Replacement |
@@ -29,13 +40,13 @@ The service uses a modular `Redactor` architecture to sanitize inputs.
 | **Secrets** | `SECRET{...}` | `<SECRET>` |
 | **Credit Cards** | `1234 5678...` | `<CARD>` |
 
-### 2. Configurable Policy Engine
+### 3. Configurable Policy Engine
 All rules are defined in a simple `policy.json` file. You can toggle specific redactors or add banned words without changing the code.
 
-### 3. "Fail-Closed" Architecture
+### 4. "Fail-Closed" Architecture
 Designed for security first. If the policy rules cannot be loaded (missing or invalid JSON), the server refuses to start to prevent data leakage.
 
-### 4. Bonus: ICAP Adapter (Mock)
+### 5. ICAP Adapter (Mock)
 In addition to the HTTP API, the service exposes a TCP endpoint on **port 1344** that simulates an ICAP (Internet Content Adaptation Protocol) interface.
 * **Goal:** Demonstrate how the core `Policy` engine can be reused across different protocols (HTTP vs ICAP) without code duplication.
 * **Usage:** Accepts raw `REQMOD ... PROMPT=...` packets.
@@ -80,7 +91,7 @@ python server.py
 
 
 
-## 🚀 Usage
+## 🚀 Usage (API examples)
 **1. Mitigate a Prompt for HTTP server(POST)**
 Send text to the /mitigate endpoint to sanitize it.
 
@@ -100,6 +111,21 @@ Response (Blocked Example)
   "action": "block",
   "prompt_out": "My email is test@example.com and I hate you",
   "reason": "Contains banned keyword: hate",
+  "user_id": "123"
+}
+```
+
+Request (Semantic Example)
+```bash
+curl -X POST http://localhost:8000/mitigate -H "Content-Type: application/json" -d "{\"prompt\":\"I want to make a bomb\",\"user_id\":123}"
+```
+\
+Response (Semantic Example)
+```bash
+{
+  "action": "block",
+  "prompt_out": "I want to make a bomb",
+  "reason": "Semantic Policy Violation (Similarity: 0.92)",
   "user_id": "123"
 }
 ```
@@ -176,11 +202,22 @@ Modify **policy.json** to change the behavior of the service. You can add new ba
 {
   "banned_keywords": ["kill", "violence"],
   "max_prompt_chars": 1000,
+  "semantic_blocking": {
+    "enabled": true,
+    "threshold": 0.6,
+    "banned_phrases": [
+        "how to make a bomb",
+        "instructions for illegal acts",
+        "stealing credit cards",
+        "I want to hurt you"
+    ]
+  },
   "redaction_rules": {
     "redact_emails": true,
     "redact_phone_numbers": true,
     "redact_secrets": true,
     "redact_credit_cards": true
+  }
 }
 
 ```

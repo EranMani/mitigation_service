@@ -11,13 +11,13 @@
         "enabled": true,
         "threshold": 0.6,
         "banned_phrases": [
-        "how to make a bomb",
-        "how to build a weapon",
-        "instructions for manufacturing drugs",
-        "how to launder money",
-        "stealing credit card numbers",
-        "how to hack into a database",
-        "generate a ransomware script"
+            "how to make a bomb",
+            "how to build a weapon",
+            "instructions for manufacturing drugs",
+            "how to launder money",
+            "stealing credit card numbers",
+            "how to hack into a database",
+            "generate a ransomware script"
         ]
     },
     "max_prompt_chars": 200,
