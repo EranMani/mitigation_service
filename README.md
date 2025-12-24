@@ -21,7 +21,7 @@ A lightweight, policy-driven HTTP service designed to redact PII (Personally Ide
 
 ## ✨ Features
 
-### 1. 🧠 AI Semantic Blocking
+### 1. AI Semantic Blocking
 Unlike simple keyword lists, the service uses a local AI model (`all-MiniLM-L6-v2`) to understand the **meaning** of a prompt.
 * **How it works:** It calculates the semantic distance between the user's prompt and a list of "banned concepts" (e.g., "instructions for illegal acts").
 * **Offline Capable:** The AI model is baked into the Docker image, so it runs 100% offline with no internet access required at runtime.
