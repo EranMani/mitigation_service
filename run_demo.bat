@@ -2,22 +2,37 @@
 setlocal enabledelayedexpansion
 
 echo ===================================================
-echo      MITIGATION SERVICE - DEMO MODE
+echo      MITIGATION SERVICE - DEMO MODE (Windows)
 echo ===================================================
 
 echo.
-echo [1/3] STOPPING OLD CONTAINERS...
-docker compose down 2>nul
-FOR /f "tokens=*" %%i IN ('docker ps -q --filter "publish=8000"') DO docker rm -f %%i >nul 2>&1
+echo [1/3] STOPPING OLD CONTAINERS... [cite: 6]
+docker compose down 2>nul [cite: 6]
+:: Cleanup any container specifically blocking our ports [cite: 6]
+FOR /f "tokens=*" %%i IN ('docker ps -q --filter "publish=8000"') DO docker rm -f %%i >nul 2>&1 [cite: 6]
 
 echo.
-echo [2/3] STARTING SERVER (In a new window)...
-echo Check the other window for server logs!
-start "Mitigation Server Logs" cmd /k "docker compose up --build"
+echo [2/3] STARTING SERVER... [cite: 7]
+echo (Using existing image to support offline runtime)
+:: Start in a new window to keep logs separate 
+start "Mitigation Server Logs" cmd /k "docker compose up"
 
 echo.
-echo [3/3] WAITING FOR SERVER TO WAKE UP (15 seconds)...
-timeout /t 15 /nobreak >nul
+echo [3/3] WAITING FOR SERVER TO WAKE UP...
+echo (This may take a moment while the AI model loads)
+
+:WAIT_LOOP
+:: Try to ping the history endpoint silently
+curl -s http://localhost:8000/history >nul 2>&1
+if %errorlevel% neq 0 (
+    echo | set /p="."
+    timeout /t 1 /nobreak >nul
+    goto WAIT_LOOP
+)
+
+echo.
+echo [SERVER ONLINE] Ready to begin tests.
+timeout /t 2 /nobreak >nul
 
 echo.
 echo ===================================================

@@ -130,7 +130,7 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
             "headers": meta_headers, 
             "prompt_in": prompt,
             "prompt_out": policy_decision.get("prompt_out"),
-            "action": policy_decision["action"],
+            "decision": policy_decision["action"],
             "reason": policy_decision["reason"]
         }
 

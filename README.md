@@ -62,6 +62,8 @@ In addition to the HTTP API, the service exposes a TCP endpoint on **port 1344**
 > 2. **Offline Runtime:** As per requirements, the service is designed to **run without internet access** once built.
 >    * ⚠️ The initial build may take **5-10 minutes** to complete.
 >    * This is intentional: the Dockerfile is installing `torch` and **downloading the AI model** to "bake" it into the image.
+>    * First build: Requires internet to download base images and dependencies (`docker compose build`)
+>    * The `--pull=never` flag ensures Docker uses cached images instead of checking the registry
 >    * The only external dependency is the **Bonus Semantic Feature** (`sentence-transformers`).
 >    * To support offline execution, the AI model is pre-downloaded and baked into the Docker image during the build phase (`download_model.py`).
 >    * **Benefit:** This ensures the service works **100% offline** and starts up instantly on subsequent runs.
@@ -76,16 +78,23 @@ cd mitigation_service
 ```
 
 ### ⚡ Quick Start (Linux / macOS)
+A `Makefile` is provided to simplify the workflow.
+
+| Command | Description |
+| :--- | :--- |
+| **`make build`** | **Step 1.** Builds the Docker image. **Requires Internet** (downloads PyTorch & Models). |
+| **`make run`** | **Step 2.** Starts the service using the local image. **Works Offline.** |
+| **`make demo`** | **Step 3.** Runs the automated test script (`run_demo.sh`) against the running server. |
+| **`make clean`** | Stops and removes all containers. |
 ```bash
-# Build and Run the service
+# 1. First, build the image (do this while you have internet!)
+make build
+
+# 2. Start the application (safe to run without internet)
 make run
 
-# Run the Automated Demo (Equivalent to run_demo.bat)
-# Note: This runs the 'run_demo.sh' script to fire 20 test cases.
+# 3. (Optional) Run the automated demo suite
 make demo
-
-# Stop and Clean up containers
-make clean
 ```
 
 ### ⚡ Quick Start (Windows)

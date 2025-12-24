@@ -13,7 +13,7 @@ docker ps -q --filter "publish=8000" | xargs -r docker rm -f >/dev/null 2>&1
 echo ""
 echo "[2/3] STARTING SERVER (Detached Mode)..."
 # On Linux, we run in background (-d) instead of popping a new window
-docker compose up -d --build
+docker compose up -d
 
 echo ""
 echo "[3/3] WAITING FOR SERVER TO WAKE UP (15 seconds)..."
