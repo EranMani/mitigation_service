@@ -6,7 +6,8 @@ The policy will decide which action priority is best suitable for the prompt - b
 import json
 from pathlib import Path
 from typing import Dict, Any, Optional
-from .redactors import EmailRedactor, PhoneRedactor, SecretRedactor, CreditCardRedactor, SemanticRedactor
+from .redactors import EmailRedactor, PhoneRedactor, SecretRedactor, CreditCardRedactor
+from .semantic import SemanticBlocker
 
 # Constants
 POLICY_FILENAME = "policy.json"
@@ -21,6 +22,7 @@ class Policy:
 
         self.rules = {}
         self.redactors = {}
+        self.semantic_blocker = None
 
         # Load the policy rules and setup redactors on startup
         self.load_policy()
@@ -34,7 +36,7 @@ class Policy:
             print(f"Loaded {len(self.rules)} rules from {self.policy_file_path}")
             
             # Re-initialize redactors based on new config
-            self._configure_redactors()
+            self._configure_components()
             
         except (FileNotFoundError, json.JSONDecodeError) as e:
             # If we can't read the security rules, we must not start.
@@ -42,31 +44,43 @@ class Policy:
             raise e
 
     def evaluate_prompt(self, prompt):
-        """Main entry point. Evaluates a prompt against all active rules."""
+        """
+        Main entry point. Evaluates a prompt against all active rules.
+        1. Check Hard Blocks (Keywords, Length)
+        2. Check Semantic Blocks (AI)
+        3. Apply Redaction (PII)
+        4. Allow (Default)
+        """
 
         # 1. BLOCKING CHECK (Highest Priority)
         block_result = self._check_blocking(prompt)
         if block_result:
             return block_result
 
-        # 2. REDACTION CHECK (Medium Priority)
+        # 2. SEMANTIC BLOCKING (AI, between medium and high priority)
+        # Another layer of security 
+        semantic_result = self._check_semantic_blocking(prompt)
+        if semantic_result:
+            return semantic_result
+
+        # 3. REDACTION CHECK (Medium Priority)
         redact_result = self._apply_redaction(prompt)
         if redact_result:
             return redact_result
 
-        # 3. ALLOW (Default)
+        # 4. ALLOW (Default)
         return {
             "action": "allow",
             "prompt_out": prompt,
             "reason": "Safe, no action required"
         }
 
-    def _configure_redactors(self):
-        """Instantiate redactors based on JSON config."""
+    def _configure_components(self):
+        """Instantiate redactors AND the semantic blocker."""
+        # A. Setup Redactors
         config = self.rules.get("redaction_rules", {})
         self.redactors = {}
 
-        # Mapping config keys to Redactor classes
         redactor_map = {
             "redact_emails": ("Email", EmailRedactor),
             "redact_phone_numbers": ("Phone", PhoneRedactor),
@@ -78,17 +92,17 @@ class Policy:
             if config.get(config_key, False):
                 self.redactors[name] = cls()
 
+        # B. Setup Semantic Blocker
         semantic_config = self.rules.get("semantic_blocking", {})
         if semantic_config.get("enabled", False):
-            from .redactors import SemanticRedactor
-            
             phrases = semantic_config.get("banned_phrases", [])
-            threshold = semantic_config.get("threshold", 0.7)
-            
-            # We add it with a special name
-            self.redactors["SemanticBlock"] = SemanticRedactor(phrases, threshold)
+            threshold = semantic_config.get("threshold", 0.6)
+            self.semantic_blocker = SemanticBlocker(phrases, threshold)
+        else:
+            self.semantic_blocker = None
 
         print(f"Active Redactors: {list(self.redactors.keys())}")
+        print(f"Semantic Blocking: {'Enabled' if self.semantic_blocker else 'Disabled'}")
         
     def _apply_redaction(self, prompt: str) -> Optional[Dict[str, Any]]:
         """Apply redactions to a prompt."""
@@ -112,6 +126,30 @@ class Policy:
                 "reason": f"P.I.I. detected and redacted: {affected_types}"
             }
         
+        return None
+
+    def _check_semantic_blocking(self, prompt: str) -> Optional[Dict[str, Any]]:
+        """Check against the AI model."""
+        if not self.semantic_blocker:
+            return None
+
+        # Send the prompt to the semantic model
+        """
+        NOTE: It returns a similarity score between the prompt and the banned phrases and if it is considered blocked or not
+        How to check if a prompt is blocked => similarity score > threshold (can be configured in the policy.json file)
+        """
+        
+        is_blocked, score = self.semantic_blocker.check_blocking(prompt)
+        
+        # The AI model response
+        if is_blocked:
+            return {
+                "action": "block",
+                "prompt_out": prompt,  # We return original prompt (but blocked)
+                "reason": f"Semantic Policy Violation (Similarity: {score:.2f})"
+            }
+
+        # None means the AI model sees nothing wrong with the prompt
         return None
 
     def _check_blocking(self, prompt: str) -> Optional[Dict[str, Any]]:
