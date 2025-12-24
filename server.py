@@ -75,16 +75,15 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
             return
 
         # Fetch optional fields
-        # NOTE: Use get() with default values to avoid crashing
         model = data.get("model", "gpt-4o")
         purpose = data.get("purpose", "general")
         meta_headers = data.get("headers", {})
 
-        # Pass user prompt to the policy evaulate function
+        # Pass user prompt to the policy evaluate function
         policy_decision = self.policy.evaluate_prompt(prompt)
         
-        # Create a new entry in the history
-        self._log_to_history(user_id, prompt, policy_decision)
+        # Create a new entry in the history with FULL context
+        self._log_to_history(user_id, prompt, policy_decision, model, purpose, meta_headers)
 
         # Build the response data for the client
         response_data = {
@@ -115,12 +114,20 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
             return None
 
     @classmethod
-    def _log_to_history(cls, user_id, prompt, policy_decision):
+    def _log_to_history(cls, user_id, prompt, policy_decision, model="N/A", purpose="N/A", meta_headers=None):
         """Helper to log the request to the history."""
+        
+        # Ensure headers is a dict if None is passed
+        if meta_headers is None:
+            meta_headers = {}
+
         # Create a new entry in the history
         log_entry = {
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
             "user_id": user_id,
+            "model": model,          
+            "purpose": purpose,      
+            "headers": meta_headers, 
             "prompt_in": prompt,
             "action": policy_decision["action"],
             "reason": policy_decision["reason"]
@@ -170,7 +177,14 @@ class MockICAPHandler(socketserver.StreamRequestHandler):
             # 3. Reuse the same policy engine instance
             decision = RequestHandler.policy.evaluate_prompt(prompt)
 
-            RequestHandler._log_to_history("icap_client", prompt, decision)
+            RequestHandler._log_to_history(
+                user_id="icap_client",
+                prompt=prompt,
+                policy_decision=decision,
+                model="icap-stream", 
+                purpose="mitigation",
+                meta_headers={"protocol": "ICAP/1.0"}
+            )
 
             # 4. Send Response 
             # 204 = No modification needed (allow)
